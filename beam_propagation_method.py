@@ -31,7 +31,7 @@ def waveguide(xa, xb, Nx, n_cladding, n_core):
         x : 1d-array
             Generated coordinate vector
     '''
-    pass
+    return 0
 
 
 
