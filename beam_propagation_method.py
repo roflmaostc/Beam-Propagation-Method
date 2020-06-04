@@ -147,7 +147,7 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step,
     elif method == "invert":
         # invert the matrix explicitly
         L = Ml
-        Linv = lsp.inv(L).dot(Mr)
+        L_inv = lsp.inv(L).dot(Mr)
 
     # calculate the steps
     for i in range(N_iter):
@@ -161,7 +161,7 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step,
             v_in = solve(Mr.dot(v_in))
         # use pre inverted matrix
         elif method == "invert":
-            v_in = Linv.dot(v_in)
+            v_in = L_inv.dot(v_in)
         # solve system without previous factorization
         else:
             v_in = lsp.spsolve(Ml, Mr.dot(v_in))
