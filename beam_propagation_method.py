@@ -73,7 +73,8 @@ def gauss(xa, Nx, w):
     return v, x
 
 
-def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step):
+def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step,
+                method="factorized", dtype=np.complex64):
     '''Propagates an initial field over a given distance based on the
     solution of the paraxial wave equation in an inhomogeneous
     refractive index distribution using the explicit-implicit
@@ -97,7 +98,11 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step):
             Step size in propagation direction
         output_step : int
             Number of steps between field outputs
-
+        method : keyword argument.
+                 if "factorized" the left matrix is factorized before solving
+                 the system of linear equations
+                 if "invert" the left matrix is inverted before the for loop
+                 if "solve" we solve the system but without factorization
     Returns
     -------
         v_out : 2d-array
@@ -105,6 +110,13 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step):
         z : 1d-array
             z-coordinates of field output
     '''
+    # check whether method provided correctly
+    if method != "factorized" and method != "solve" and method != "invert":
+        raise ValueError("method must be \"factorized\", \"solve\", or \"invert\"")
+
+    # change the datatype of v_in
+    v_in = v_in.astype(dtype)
+
     # k vector in vacuum
     k0 = 2 * np.pi / lam
     # expected average k vector
@@ -114,7 +126,7 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step):
     N_iter = round(z_end / dz)
     N_stor = round(z_end / dz / output_step)
 
-    v_out = np.zeros((N_stor, len(v_in)), dtype=np.complex64)
+    v_out = np.zeros((N_stor, len(v_in)), dtype=dtype)
     z = np.arange(0, z_end, dz * output_step)
 
     # matrix L construction
@@ -124,15 +136,34 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step):
     # the off diagonals
     Bj = 1j / (2 * kbar * dx * dx)
     # construct a sparse matrix in the csr format
-    Mr = sps.diags([1 + Aj, Bj, Bj], [0, -1, 1], format="csr")
-    Ml = sps.diags([1 - Aj, - Bj, - Bj], [0, -1, 1], format="csr")
+    Mr = sps.diags([1 + Aj, Bj, Bj], [0, -1, 1], format="csc", dtype=dtype)
+    Ml = sps.diags([1 - Aj, - Bj, - Bj], [0, -1, 1], format="csc", dtype=dtype)
 
+    if method == "factorized":
+        # we can save the factorization of Ml
+        # this is some precomputation saving us time for solving
+        # the linear system of equations
+        solve = lsp.factorized(Ml)
+    elif method == "invert":
+        # invert the matrix explicitly
+        L = Ml
+        Linv = lsp.inv(L).dot(Mr)
+
+    # calculate the steps
     for i in range(N_iter):
         # save every output_step the intermediate results in v_out
         if i % output_step == 0:
             v_out[i // output_step, :] = v_in
 
         # calculate the next step with solving the linear system of equations
-        v_in = lsp.spsolve(Ml, Mr.dot(v_in))
+        # use pre factorized matrix
+        if method == "factorized":
+            v_in = solve(Mr.dot(v_in))
+        # use pre inverted matrix
+        elif method == "invert":
+            v_in = Linv.dot(v_in)
+        # solve system without previous factorization
+        else:
+            v_in = lsp.spsolve(Ml, Mr.dot(v_in))
 
     return v_out, z
