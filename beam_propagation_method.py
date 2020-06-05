@@ -134,7 +134,7 @@ def beamprop_CN(v_in, lam, dx, n, nd,  z_end, dz, output_step,
     Aj = dz / 2 * (- 1j / (kbar * dx * dx)
                    + 1j * (k0 * k0 * n * n - kbar * kbar)/(2 * kbar))
     # the off diagonals
-    Bj = 1j / (2 * kbar * dx * dx)
+    Bj = dz / 2 * 1j / (2 * kbar * dx * dx)
     # construct a sparse matrix in the csr format
     Mr = sps.diags([1 + Aj, Bj, Bj], [0, -1, 1], format="csc", dtype=dtype)
     Ml = sps.diags([1 - Aj, - Bj, - Bj], [0, -1, 1], format="csc", dtype=dtype)
